@@ -1,0 +1,82 @@
+Framework Design - OrangeHRM BDD UI Tests
+
+Stack: .NET 8, Playwright, Reqnroll (Gherkin), NUnit, Allure Report
+(the test cases are in 01.TestDesign.txt)
+
+
+1. Overview
+
+Tests are written as Gherkin scenarios. Reqnroll turns each scenario into an NUnit test. Every Gherkin step calls a step definition in C#, which uses page objects to control the browser with Playwright and then checks the result. Allure collects the results into an HTML report.
+
+Flow: Feature file -> Step definitions -> Page objects -> Playwright -> OrangeHRM site
+
+
+2. Project structure
+
+Features/ - the Gherkin scenarios (Login.feature)
+StepDefinitions/ - maps each Gherkin step to C# code (LoginSteps.cs)
+Pages/ - page objects with locators and actions
+    BasePage.cs - shared open/navigation code
+    LoginPage.cs - username, password, login button, error message
+    DashboardPage.cs - header and user menu
+Hooks/ - browser and scenario lifecycle (PlaywrightHooks.cs)
+Support/ - PlaywrightDriver.cs (browser objects for one scenario) and TestSettings.cs (reads configuration)
+appsettings.json - base URL, browser, headless, timeout, credentials
+reqnroll.json - Reqnroll settings
+allureConfig.json - Allure results folder and report title
+run-tests.ps1 - runs the tests and builds the Allure report
+docs/ - test design and framework design
+
+
+3. How a test runs
+
+1. BeforeTestRun - once per run. Playwright starts and one browser is launched, using the browser type, headless and slow motion settings. Starting a browser is slow, so all scenarios share it.
+2. BeforeScenario - PlaywrightDriver creates a new browser context and page for the scenario (1440x900 viewport, base URL, default timeout). A new context means fresh cookies and storage, so scenarios cannot affect each other.
+3. Steps - Reqnroll runs the Background and the scenario steps. The step class gets the driver through constructor injection (no static page variable) and creates the page objects.
+4. AfterScenario - if the scenario failed, a full-page screenshot is attached to the Allure report. Then the context is closed.
+5. AfterTestRun - the browser is closed and Playwright is disposed.
+
+
+4. Design decisions
+
+- Page Object Model: locators and actions are in Pages/, assertions are only in the step definitions. If the UI changes I only edit the page object. LoginPage has a business action, LoginAsync(username, password).
+- Locators: I use GetByRole and GetByPlaceholder instead of long XPath, so they survive small layout changes.
+- Waiting: Playwright waits for elements automatically and Expect(...) retries until the timeout. There is no Thread.Sleep anywhere.
+- Isolation: the browser is shared, but every scenario has its own context and its own PlaywrightDriver (Reqnroll creates it per scenario). No test depends on another test.
+- Configuration: TestSettings reads appsettings.json first, then environment variables, so environment variables win. For example Test__Headless=true runs headless in CI without changing a file. Credentials come from configuration and are never written in the steps.
+- Tags: @smoke, @positive and @negative are used to filter runs. @TC-LOGIN-01 and so on link a scenario to its test case in the test design.
+
+
+5. Reporting
+
+Allure writes the raw results to bin/Debug/net8.0/allure-results during the run. run-tests.ps1 does the following every time:
+1. keeps the history of the previous report (for trends) and deletes the old results
+2. runs dotnet test, with an optional filter
+3. generates the HTML report into allure-report/, even if tests failed
+4. opens the report (use -NoOpen to skip)
+5. exits with the test exit code so CI still sees a failure
+
+
+6. How to run
+
+One-time setup:
+  dotnet restore
+  dotnet build
+  pwsh bin/Debug/net8.0/playwright.ps1 install chromium
+  npm install -g allure-commandline (needs Java)
+
+Run:
+  dotnet test                                 all tests
+  dotnet test --filter "Category=smoke"       smoke only
+  dotnet test --filter "Category=negative"    negative only
+  $env:Test__Headless="true"; dotnet test     headless (CI)
+  .\run-tests.ps1                             run tests and build the Allure report
+
+
+7. How to add a new test
+
+1. Add a scenario to the .feature file and tag it with its test case ID.
+2. Reuse an existing step, or add a new step method in StepDefinitions/.
+3. If it needs new UI elements, add locators and actions to a page object in Pages/ (or make a new page class that inherits BasePage).
+
+No change to hooks, driver or configuration is needed.

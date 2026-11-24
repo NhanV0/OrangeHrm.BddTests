@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+allure-results/
+allure-report/
+TestResults/
+*.feature.cs
+.vscode/

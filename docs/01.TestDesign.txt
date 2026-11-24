@@ -1,0 +1,72 @@
+Test Design - OrangeHRM Login
+
+Application: https://opensource-demo.orangehrmlive.com
+Feature: Login
+(how the framework works is in 02.AutomationFrameworkDesign.txt)
+
+
+1. Test Case Description
+
+I chose the Login feature. 
+The main business rule is that only users with valid credentials can get into the system.
+
+Test cases I designed:
+
+TC-LOGIN-01 - Valid admin credentials go to the Dashboard (positive, P1)
+TC-LOGIN-02 - Wrong password shows "Invalid credentials" (negative, P1)
+TC-LOGIN-03 - Unknown username shows "Invalid credentials" (negative, P1)
+TC-LOGIN-04 - Empty username and password show "Required" (negative, P2)
+TC-LOGIN-05 - Username case sensitivity, admin vs Admin (edge, P3)
+TC-LOGIN-06 - Injection strings are rejected, no error page (negative, P2)
+TC-LOGIN-07 - Password field is masked (positive, P3)
+
+In the video I will automate TC-LOGIN-01 and TC-LOGIN-02.
+
+TC-LOGIN-01 - Successful login with valid administrator credentials
+Precondition: user Admin exists and is active
+Data: username Admin, password admin123
+Steps:
+  1. Open the login page
+  2. Enter the valid username and password
+  3. Click Login
+Expected: redirected to /dashboard/index, header is "Dashboard", user menu is visible
+
+TC-LOGIN-02 - Login is rejected when the password is wrong
+Precondition: user Admin exists
+Data: username Admin, password wrong_password_123
+Steps:
+  1. Open the login page
+  2. Enter the valid username and the wrong password
+  3. Click Login
+Expected: error "Invalid credentials" is shown and the user stays on the login page (URL contains /auth/login)
+
+The other cases are designed but not automated:
+- TC-LOGIN-03: unknown username should show the same message as a wrong password, so the page does not tell which users exist.
+- TC-LOGIN-04: click Login with both fields empty, "Required" shows under both fields.
+- TC-LOGIN-05: log in with "admin" instead of "Admin" and write down what actually happens.
+- TC-LOGIN-06: type ' OR '1'='1 and <script>alert(1)</script> in the fields, login is rejected, no script runs and no server error page.
+- TC-LOGIN-07: check that the password input type is "password".
+
+
+2. Test Strategy
+
+- Test level: UI end to end. The redirect and the error message only exist in the browser, so I check them through the UI.
+- Techniques: equivalence partitioning (valid credentials, wrong password, unknown username, empty fields - I test one example of each), negative testing, and error guessing (injection strings, case sensitivity).
+- Priority is based on risk. P1 means it blocks all users or exposes data. P2 is input validation. P3 is low impact.
+- Execution: TC-LOGIN-01 is the smoke test and runs on every commit. P1 negative cases run on every pull request. P2 and P3 run in the nightly regression.
+- Test data: I only use the built-in Admin account. The demo site is shared and reset regularly, so the tests must not depend on data created by other tests. Credentials are kept in configuration, not in the test steps.
+- A test passes only when every expected result is met, including the URL and no Dashboard after a rejected login.
+
+
+3. Rationale
+
+Why Login: it is the entry point to personal employee data. If it breaks nothing else can be used or tested, and weak validation is a security risk.
+
+Why a positive and a negative case first: TC-LOGIN-01 proves authorised users can get in, and if it fails everyone is blocked. TC-LOGIN-02 proves unauthorised users are refused, and if it fails it is a security problem. If I only tested the happy path, the main rule (only valid credentials get in) would not be verified. That is why both are P1.
+
+Why the other cases have these priorities:
+- TC-LOGIN-03 is P1, because a different message for unknown users would let an attacker find valid usernames.
+- TC-LOGIN-04 and TC-LOGIN-06 are P2, they protect input validation but rarely block a release.
+- TC-LOGIN-05 and TC-LOGIN-07 are P3, a failure there has low impact.
+
+Why only two cases are automated now: I want the biggest risk reduction for the time I have. These two cover the main rule in both directions. The rest are lower risk and already designed, so they can be added later without rework.
