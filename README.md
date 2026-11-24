@@ -3,6 +3,9 @@
 Playwright (.NET) + Reqnroll (Gherkin) + NUnit + Allure Report.
 Test design document: [docs/01.TestDesign.txt](docs/01.TestDesign.txt)
 Framework design document: [docs/02.AutomationFrameworkDesign.txt](docs/02.AutomationFrameworkDesign.txt)
+Live coding video: [OrangeHRM Login Test Automation (Playwright .NET + Reqnroll BDD)](https://youtu.be/MowVuaQpvf8)
+
+Automated in the video: TC-LOGIN-01 (valid admin login) and TC-LOGIN-02 (wrong password rejected). TC-LOGIN-03 to 07 are designed in the test design document but not automated yet.
 
 ## Prerequisites
 * .NET SDK 8.0+
